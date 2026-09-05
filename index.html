@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>防災サバイバル（20種アイテム＋自作機能版）</title>
+<style>
+  body { font-family: sans-serif; background: #1a1a1a; color: #eee; padding: 20px; }
+  .container { max-width: 950px; margin: 0 auto; background: #2a2a2a; padding: 20px; border-radius: 8px; }
+  .status-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; background: #333; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
+  .status-item span { font-size: 18px; font-weight: bold; color: #4caf50; }
+  .status-item span.danger { color: #f44336; }
+  .config-panel { background: #333; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  .config-panel label { display: block; font-size: 12px; color: #aaa; margin-bottom: 5px; }
+  .config-panel input { width: 90%; padding: 6px; background: #222; border: 1px solid #555; color: #fff; border-radius: 4px; font-size: 14px; }
+  .create-panel { background: #3a3a3a; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 5px solid #2196f3; }
+  .create-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+  .create-form input { padding: 6px; background: #222; border: 1px solid #555; color: #fff; border-radius: 4px; }
+  .event-box { background: #3a3a3a; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 5px solid #ff9800; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { border: 1px solid #555; border-radius: 6px; padding: 10px; background: #333; font-size: 14px; }
+  .card h4 { margin: 0 0 5px 0; color: #ffb74d; }
+  .card .tag { font-size: 11px; color: #aaa; }
+  .action-btn { width: 100%; padding: 12px; font-size: 18px; font-weight: bold; background: #ff9800; border: none; border-radius: 5px; cursor: pointer; color: white; }
+  .action-btn:disabled { background: #555; cursor: not-allowed; }
+  .btn-group { display: flex; gap: 5px; margin-top: 8px; }
+  .btn-select { flex: 1; padding: 6px; background: #2196f3; border: none; border-radius: 3px; color: white; cursor: pointer; font-weight: bold; }
+  .btn-use { padding: 4px 8px; background: #4caf50; border: none; border-radius: 3px; color: white; cursor: pointer; }
+  .btn-add-item { width: 100%; padding: 8px; background: #2196f3; border: none; border-radius: 4px; color: white; font-weight: bold; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>防災サバイバル（アイテム20種追加版）</h1>
+  
+  <div class="status-bar">
+    <div class="status-item">日数<br><span id="day">1</span>/<span id="max-day-disp">20</span></div>
+    <div class="status-item">体力(HP)<br><span id="hp">100</span></div>
+    <div class="status-item">精神(SAN)<br><span id="san">100</span></div>
+    <div class="status-item">予算<br><span id="budget">30000</span>円</div>
+    <div class="status-item">重量<br><span id="weight">0.0</span>/<span id="max-weight-disp">15.0</span>kg</div>
+    <div class="status-item">容量<br><span id="volume">0</span>/<span id="max-volume-disp">30</span>L</div>
+  </div>
+
+  <div id="setup-phase">
+    <h2>【1. 初期パラメータ設定】</h2>
+    <div class="config-panel">
+      <div>
+        <label>目標生存日数（日）</label>
+        <input type="number" id="input-days" value="20" min="1" max="100" oninput="updateConfig()">
+      </div>
+      <div>
+        <label>初期体力 (HP)</label>
+        <input type="number" id="input-hp" value="100" min="10" max="300" oninput="updateConfig()">
+      </div>
+      <div>
+        <label>初期精神力 (SAN)</label>
+        <input type="number" id="input-san" value="100" min="10" max="300" oninput="updateConfig()">
+      </div>
+      <div>
+        <label>初期所持金（円）</label>
+        <input type="number" id="input-budget" value="30000" min="0" step="1000" oninput="updateConfig()">
+      </div>
+      <div>
+        <label>許容重量 (kg)</label>
+        <input type="number" id="input-weight" value="15.0" step="0.5" min="1" oninput="updateConfig()">
+      </div>
+      <div>
+        <label>許容量 (L)</label>
+        <input type="number" id="input-vol" value="30" min="1" oninput="updateConfig()">
+      </div>
+    </div>
+
+    <h2>【2. 新規アイテム自作】さらに追加することも可能です</h2>
+    <div class="create-panel">
+      <div class="create-form">
+        <input type="text" id="new-name" placeholder="アイテム名">
+        <input type="text" id="new-tag" placeholder="カテゴリ">
+        <input type="number" id="new-price" placeholder="価格(円)" value="1000">
+        <input type="number" id="new-weight" placeholder="重量(kg)" value="0.5" step="0.1">
+        <input type="number" id="new-volume" placeholder="容量(L)" value="1" step="0.5">
+        <input type="number" id="new-hp" placeholder="HP回復量" value="0">
+        <input type="number" id="new-san" placeholder="SAN回復量" value="15">
+      </div>
+      <button class="btn-add-item" onclick="addNewItem()">アイテムを追加する</button>
+    </div>
+
+    <h2>【3. 持ち出し品選択（全20種）】</h2>
+    <div class="cards" id="card-list"></div>
+    <button class="action-btn" id="start-btn" onclick="startGame()">サバイバル開始</button>
+  </div>
+
+  <div id="survival-phase" style="display:none;">
+    <div class="event-box">
+      <h3 id="event-title">本日の状況</h3>
+      <p id="event-desc">準備を整えてサバイバルを開始しました。</p>
+    </div>
+
+    <h3>持ち出しアイテム（使用可能）</h3>
+    <div id="inventory-list"></div>
+    <br>
+    <button class="action-btn" id="next-day-btn" onclick="nextDay()">次の日へ進む (-10 HP / -5 SAN)</button>
+  </div>
+</div>
+
+<script>
+let maxDay = 20;
+let currentDay = 1;
+let hp = 100;
+let maxHp = 100;
+let san = 100;
+let maxSan = 100;
+let initialBudget = 30000;
+let maxWeight = 15.0;
+let maxVolume = 30;
+
+// 20種類の基本アイテムリスト
+const items = [
+  { id: 1, name: '500ml 保存水', tag: '水', price: 100, weight: 0.5, volume: 1, hp: 10, san: 0 },
+  { id: 2, name: 'アルファ化米', tag: '食料', price: 400, weight: 0.2, volume: 1, hp: 15, san: 2 },
+  { id: 3, name: '高栄養パン缶', tag: '食料', price: 500, weight: 0.2, volume: 1, hp: 20, san: 5 },
+  { id: 4, name: 'チョコレート・羊羹', tag: '嗜好品', price: 300, weight: 0.1, volume: 0.5, hp: 5, san: 20 },
+  { id: 5, name: 'ドリップコーヒー・お茶', tag: '嗜好品', price: 500, weight: 0.1, volume: 0.5, hp: 0, san: 25 },
+  { id: 6, name: '文庫本・トランプ', tag: '娯楽', price: 600, weight: 0.2, volume: 0.5, hp: 0, san: 30 },
+  { id: 7, name: '携帯ゲーム機・パズル', tag: '娯楽', price: 3000, weight: 0.3, volume: 0.8, hp: 0, san: 40 },
+  { id: 8, name: 'アイマスク・耳せん', tag: '安眠', price: 400, weight: 0.1, volume: 0.2, hp: 5, san: 20 },
+  { id: 9, name: 'コンパクト寝袋', tag: '防寒', price: 3500, weight: 1.0, volume: 3, hp: 10, san: 20 },
+  { id: 10, name: '防寒アルミシート', tag: '防寒', price: 500, weight: 0.1, volume: 0.5, hp: 0, san: 0 },
+  { id: 11, name: 'ヘッドライト', tag: '明かり', price: 2500, weight: 0.2, volume: 1, hp: 0, san: 0 },
+  { id: 12, name: 'ソーラーランタン', tag: '明かり', price: 2000, weight: 0.4, volume: 1.5, hp: 0, san: 10 },
+  { id: 13, name: '簡易トイレ (5回分)', tag: '衛生', price: 1000, weight: 0.3, volume: 1.5, hp: 0, san: 0 },
+  { id: 14, name: 'ウェットティッシュ', tag: '衛生', price: 300, weight: 0.2, volume: 0.5, hp: 5, san: 10 },
+  { id: 15, name: 'ドライシャンプー', tag: '衛生', price: 800, weight: 0.2, volume: 0.5, hp: 0, san: 15 },
+  { id: 16, name: '常備薬・救急セット', tag: '医療', price: 1500, weight: 0.2, volume: 1, hp: 30, san: 5 },
+  { id: 17, name: 'マルチビタミン剤', tag: '医療', price: 1200, weight: 0.1, volume: 0.2, hp: 15, san: 5 },
+  { id: 18, name: 'モバイルバッテリー', tag: '情報', price: 3000, weight: 0.4, volume: 1, hp: 0, san: 10 },
+  { id: 19, name: 'ポータブルラジオ', tag: '情報', price: 2000, weight: 0.3, volume: 1, hp: 0, san: 0 },
+  { id: 20, name: '万能マルチツール', tag: '工具', price: 1800, weight: 0.3, volume: 0.5, hp: 5, san: 5 }
+];
+
+const events = [
+  { title: '穏やかな1日', desc: '目立った問題は起きませんでした。', hpDmg: 0, sanDmg: 0 },
+  { title: '断水発生！', desc: '水道が停止。「500ml 保存水」がないと衛生・脱水で大打撃！', req: 1, hpDmg: 20, sanDmg: 15 },
+  { title: '夜間大規模停電', desc: '真っ暗闇で強い不安に。「ヘッドライト」または「ソーラーランタン」がないと危険！', req: 11, hpDmg: 10, sanDmg: 20 },
+  { title: '仮設トイレ長蛇の列', desc: '衛生環境が悪化。「簡易トイレ」がないと強烈なストレス！', req: 13, hpDmg: 5, sanDmg: 25 },
+  { title: '通信障害発生', desc: 'スマホが使えず孤立。「モバイルバッテリー」での連絡確保が鍵！', req: 18, hpDmg: 0, sanDmg: 15 },
+  { title: 'デマ情報の流言', desc: '不安を煽る噂が蔓延。「ポータブルラジオ」で正確な情報がないと混乱！', req: 19, hpDmg: 0, sanDmg: 20 },
+  { title: '冷え込み（余震警戒）', desc: '夜間の厳しい冷え込み。「防寒アルミシート」か「コンパクト寝袋」が必要！', req: 10, hpDmg: 20, sanDmg: 10 },
+  { title: '体調不良・発熱', desc: '環境変化による体調不良。「常備薬・救急セット」がないと重症化！', req: 16, hpDmg: 30, sanDmg: 10 }
+];
+
+let selectedItems = {};
+
+function renderCards() {
+  const container = document.getElementById('card-list');
+  if (!container) return;
+  
+  let html = '';
+  items.forEach(item => {
+    if (selectedItems[item.id] === undefined) selectedItems[item.id] = 0;
+    
+    let effectText = '';
+    if (item.hp > 0) effectText += `HP+${item.hp} `;
+    if (item.san > 0) effectText += `SAN+${item.san} `;
+    if (!effectText) effectText = 'イベント対策用';
+
+    html += `
+      <div class="card">
+        <div class="tag">[${item.tag}]</div>
+        <h4>${item.name}</h4>
+        <div>${item.price}円 / ${item.weight}kg / ${item.volume}L</div>
+        <div style="font-size:12px; color:#81c784; font-weight:bold; margin-top:2px;">効果: ${effectText}</div>
+        <div style="margin-top:6px;">選択数: <span id="count-${item.id}">${selectedItems[item.id]}</span></div>
+        <div class="btn-group">
+          <button class="btn-select" onclick="changeCount(${item.id}, 1)">＋追加</button>
+          <button class="btn-select" style="background:#f44336;" onclick="changeCount(${item.id}, -1)">−減らす</button>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function addNewItem() {
+  const name = document.getElementById('new-name').value.trim();
+  const tag = document.getElementById('new-tag').value.trim() || 'カスタム';
+  const price = parseInt(document.getElementById('new-price').value) || 0;
+  const weight = parseFloat(document.getElementById('new-weight').value) || 0;
+  const volume = parseFloat(document.getElementById('new-volume').value) || 0;
+  const hpGain = parseInt(document.getElementById('new-hp').value) || 0;
+  const sanGain = parseInt(document.getElementById('new-san').value) || 0;
+
+  if (!name) {
+    alert('アイテム名を入力してください');
+    return;
+  }
+
+  const newItem = {
+    id: Date.now(),
+    name: name,
+    tag: tag,
+    price: price,
+    weight: weight,
+    volume: volume,
+    hp: hpGain,
+    san: sanGain
+  };
+
+  items.push(newItem);
+  selectedItems[newItem.id] = 0;
+  
+  document.getElementById('new-name').value = '';
+  renderCards();
+  updateStats();
+}
+
+function updateConfig() {
+  maxDay = parseInt(document.getElementById('input-days').value) || 20;
+  hp = parseInt(document.getElementById('input-hp').value) || 100;
+  maxHp = hp;
+  san = parseInt(document.getElementById('input-san').value) || 100;
+  maxSan = san;
+  initialBudget = parseInt(document.getElementById('input-budget').value) || 30000;
+  maxWeight = parseFloat(document.getElementById('input-weight').value) || 15.0;
+  maxVolume = parseFloat(document.getElementById('input-vol').value) || 30;
+
+  document.getElementById('max-day-disp').textContent = maxDay;
+  document.getElementById('hp').textContent = hp;
+  document.getElementById('san').textContent = san;
+  document.getElementById('max-weight-disp').textContent = maxWeight.toFixed(1);
+  document.getElementById('max-volume-disp').textContent = maxVolume;
+  updateStats();
+}
+
+function changeCount(id, delta) {
+  if ((selectedItems[id] + delta) >= 0) {
+    selectedItems[id] += delta;
+    const el = document.getElementById(`count-${id}`);
+    if (el) el.textContent = selectedItems[id];
+    updateStats();
+  }
+}
+
+function updateStats() {
+  let cost = 0, weight = 0, volume = 0;
+  items.forEach(item => {
+    const count = selectedItems[item.id] || 0;
+    cost += item.price * count;
+    weight += item.weight * count;
+    volume += item.volume * count;
+  });
+
+  const remBudget = initialBudget - cost;
+  document.getElementById('budget').textContent = remBudget;
+  document.getElementById('weight').textContent = weight.toFixed(1);
+  document.getElementById('volume').textContent = volume;
+
+  const valid = (remBudget >= 0) && (weight <= maxWeight) && (volume <= maxVolume);
+  document.getElementById('start-btn').disabled = !valid;
+}
+
+function startGame() {
+  document.getElementById('setup-phase').style.display = 'none';
+  document.getElementById('survival-phase').style.display = 'block';
+  updateInventoryUI();
+}
+
+function triggerEvent() {
+  if (currentDay === 1) return;
+  const ev = events[Math.floor(Math.random() * events.length)];
+  
+  if (ev.req && (!selectedItems[ev.req] || selectedItems[ev.req] <= 0)) {
+    hp -= ev.hpDmg;
+    san -= ev.sanDmg;
+    document.getElementById('event-title').textContent = ev.title + '（対応失敗）';
+    document.getElementById('event-desc').textContent = `${ev.desc} 対策失敗により HP -${ev.hpDmg} / SAN -${ev.sanDmg}`;
+  } else if (ev.req) {
+    document.getElementById('event-title').textContent = ev.title + '（回避成功）';
+    document.getElementById('event-desc').textContent = `${ev.desc} 対策アイテムがあったため無事で済んだ！`;
+  } else {
+    document.getElementById('event-title').textContent = ev.title;
+    document.getElementById('event-desc').textContent = ev.desc;
+  }
+}
+
+function useItem(id) {
+  if (selectedItems[id] > 0) {
+    const item = items.find(i => i.id === id);
+    selectedItems[id]--;
+    hp = Math.min(maxHp, hp + item.hp);
+    san = Math.min(maxSan, san + item.san);
+    updateInventoryUI();
+    updateStatusDisplay();
+  }
+}
+
+function updateInventoryUI() {
+  const list = document.getElementById('inventory-list');
+  list.innerHTML = '';
+  items.forEach(item => {
+    const count = selectedItems[item.id];
+    if (count > 0) {
+      const div = document.createElement('div');
+      div.style.margin = '6px 0';
+      const canUse = item.hp > 0 || item.san > 0;
+      
+      let effectStr = '';
+      if (item.hp > 0) effectStr += `HP+${item.hp} `;
+      if (item.san > 0) effectStr += `SAN+${item.san} `;
+
+      div.innerHTML = `
+        ${item.name} × ${count}個 
+        ${canUse ? `<button class="btn-use" onclick="useItem(${item.id})">使用 (${effectStr.trim()})</button>` : ''}
+      `;
+      list.appendChild(div);
+    }
+  });
+}
+
+function updateStatusDisplay() {
+  const hpEl = document.getElementById('hp');
+  const sanEl = document.getElementById('san');
+  hpEl.textContent = hp;
+  sanEl.textContent = san;
+
+  hpEl.className = hp <= 30 ? 'danger' : '';
+  sanEl.className = san <= 30 ? 'danger' : '';
+}
+
+function nextDay() {
+  hp -= 10;
+  san -= 5;
+  currentDay++;
+
+  if (hp <= 0 || san <= 0) {
+    const reason = hp <= 0 ? '体力が尽きました' : '精神が限界を迎えました';
+    alert(`【ゲームオーバー】${currentDay}日目に${reason}...`);
+    location.reload();
+    return;
+  }
+
+  if (currentDay > maxDay) {
+    alert(`【ゲームクリア！】見事${maxDay}日間の避難生活を乗り切りました！`);
+    location.reload();
+    return;
+  }
+
+  document.getElementById('day').textContent = currentDay;
+  triggerEvent();
+  updateStatusDisplay();
+}
+
+renderCards();
+updateConfig();
+</script>
+</body>
+</html>
